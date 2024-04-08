@@ -2,7 +2,7 @@
 
 # The following line defines the path to the Salmon index for alignment.
 # This is necessary for Salmon to know where the reference data is located for quantification.
-INDEX=/scratch/prj/d_lncrna/genomes/homo/Ensembl/GRCh38/salmon_index
+INDEX=/scratch/prj/genes/genomes/homo/Ensembl/GRCh38/salmon_index
 
 # Starting a new bash script for quantification using Salmon.
 #!/bin/bash 
