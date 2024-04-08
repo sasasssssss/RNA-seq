@@ -1,0 +1,37 @@
+#!/bin/bash 
+
+# The following line defines the path to the Salmon index for alignment.
+# This is necessary for Salmon to know where the reference data is located for quantification.
+INDEX=/scratch/prj/d_lncrna/genomes/homo/Ensembl/GRCh38/salmon_index
+
+# Starting a new bash script for quantification using Salmon.
+#!/bin/bash 
+
+# Define the directory where the raw FASTQ files are located.
+FASTQ=/scratch/users/k21046049
+
+# Define the directory where the quantification outputs (counts) will be stored.
+COUNTS=/scratch/users/k21046049/counts_out
+
+# Define the path to the Salmon index. This is crucial for the alignment and quantification process.
+INDEX=/scratch/prj/genes/genomes/homo/Ensembl/GRCh38/salmon_index
+
+# Create the output directory if it doesn't already exist. This ensures that the script doesn't fail due to missing directories.
+mkdir -p $COUNTS
+
+# Begin a loop over each FASTQ file in the input directory.
+for file in $FASTQ/*.fastq.gz; do
+    echo $file
+    # Inform the user which file is currently being processed for quantification.
+    echo $file running quantification....
+    
+    # Extract the base name of the file (without path and extension) to use for the output directory.
+    input="$(basename $file .fastq.gz)"
+    output="$input"
+    
+    # Run Salmon quantification. This command will align the reads to the reference and quantify expression levels.
+    salmon quant -i $INDEX  -l A -r $file -p 10 -o $COUNTS/$output
+
+    # Inform the user that the processing of the current file is complete.
+    echo complete!!!
+done
