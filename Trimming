@@ -1,0 +1,22 @@
+#installing fastp through bioconda channe
+conda install fastp -c bioconda 
+
+#!/bin/bash
+
+# Set the number of threads to be used by FastP for processing.
+THREADS=4
+
+# Define the directory containing RNA sequencing files that need adapter trimming.
+TARGET_RNA=/Volumes/1TB/fasta_files
+
+# Start the loop to process each .fastq file in the TARGET_RNA directory.
+for file in "$TARGET_RNA"/*.fastq; do
+  # Define the output file name by appending '.trimmed.fastq' to the input file's basename.
+  trimmed="${file%.fastq}.trimmed.fastq"
+  
+  # Run FastP for adapter trimming. Specify the number of threads, input file, and output file.
+  # Also, generate HTML and JSON reports for each file processed.
+  fastp -w $THREADS -i "$file" -o "$TRIMMED/$(basename "$trimmed")" \
+        --html "$TRIMMED/$(basename "${file%.fastq}").fastp_report.html" \
+        --json "$TRIMMED/$(basename "${file%.fastq}").fastp_report.json"
+done
