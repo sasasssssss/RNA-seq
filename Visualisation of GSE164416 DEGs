@@ -1,0 +1,121 @@
+# volcano plot with all gnes (Res_all) data frame
+vol_data <- res_all[, c('log2FoldChange', 'padj', 'external_gene_name')]
+
+# Categorize the expression based on log2FoldChange and padj values
+vol_data$Expression <- case_when(
+  vol_data$log2FoldChange > 1 & vol_data$padj < 0.05 ~ 'Upregulated',
+  vol_data$log2FoldChange < -1 & vol_data$padj < 0.05 ~ 'Downregulated',
+  TRUE ~ 'Not Differentially Expressed'  # This will be the default category
+)
+vol_data$Expression <- as.factor(vol_data$Expression)
+
+#label some of the top differentially regualted  genes
+genes_to_label <- c("SNHG32","GABRA2","RPS9", "IFITM10", "RASSF7", "MKI67", "CHIT1", "IGKV1-17", "IGLV2-14", "TAFA4", "HEMGN", "SLC2A2", "CXCL13","RPL10P9") 
+vol_data <- vol_data %>% mutate(
+  label=ifelse(vol_data$external_gene_name %in% genes_to_label, vol_data$external_gene_name, ''))
+
+#generate the volcanoplot using ggplot2
+volcano_plot <- ggplot(
+  vol_data,
+  aes(x = log2FoldChange, y = -log10(padj), color = Expression)) +
+  geom_point(alpha = 0.8, size = 1) +
+  scale_color_manual(values = c('Upregulated' = 'red', 'Downregulated' = 'blue', 'Not Differentially Expressed' = 'grey')) +
+  theme_classic() +
+  geom_hline(yintercept=-log10(0.05), linetype='dashed', linewidth=0.4) +
+  geom_vline(xintercept=c(-1, 1), linetype='dashed', linewidth=0.4) +
+  scale_x_continuous(limits=c(-3,6.5)) + 
+  geom_text_repel(
+    data=vol_data,
+    mapping=aes(log2FoldChange, -log10(padj), label=label),
+    size=2.8,
+    min.segment.length=0,
+    box.padding=0.3,
+    max.overlaps = 10000) +
+  theme(
+    legend.title=element_text(size=10,face='bold'),
+    legend.text=element_text(size=10),
+    legend.position=c(4.85,4.8),
+    legend.box.background=element_rect(),
+    legend.box.margin=margin(3,3,3,3),
+    plot.title = element_text(hjust = 0.5)) +
+  xlab('log2(Fold Change)') +
+  ylab('-log10(Adjusted p-value)') +
+  labs(title = "Volcano Plot",
+       x = "Log2 Fold Change",
+       y = "-Log10 P-Adjusted Value",
+       color = "Expression Status") +
+  theme(legend.position = "right")
+print(volcano_plot)
+)
+
+
+  ###creation of  heatmap for top 100 most regulated genes###
+  
+# Extract normalized counts matrix
+ntd_matrix <- assay(ntd)
+
+# Select top 100 genes based on p-value for both Ensembl ID and gene names
+top_100_ensembl <- (res %>% dplyr::arrange(pvalue) %>% head(100))$ensembl_gene_id
+top_100_genes <- (res %>% dplyr::arrange(pvalue) %>% head(100))$external_gene_name
+
+# Load circlize library for heatmap annotations
+library(circlize)
+# Define color function
+col_fun = colorRamp2(c(-2, 0, 2 ), c("green","black", "red"))
+
+# Create heatmap for top 100 genes, with annotations for diabetes status and gene names
+Heatmap(t(scale(t(ntd_matrix[top_100_ensembl, ]))), 
+        top_annotation = HeatmapAnnotation(status = coldata$diabetes_status),
+        right_annotation = rowAnnotation(gene = anno_text(top_100_genes)),
+        show_row_names = F, # Hide row names
+        row_names_gp = grid::gpar(fontsize = 0.5), # Minimal fontsize
+        column_order = order(coldata$diabetes_status), # Order columns by diabetes status
+        col=col_fun # Apply color function
+        )
+
+
+  ###creation of the heatmap for beta_identity genes###
+  
+# Extract the matrix of normalized counts from the 'ntd' object
+ntd_matrix <- assay(ntd)
+
+# Filter genes of interest based on their external gene name matching 'beta_identity'
+gene_id_of_interest <- (genes %>% dplyr::filter(external_gene_name %in% beta_identity))$external_gene_name
+
+# Map gene names to the rows of the 'ntd_matrix' using Ensembl gene IDs
+gene_names <- genes$`external_gene_name`[match(row.names(ntd_matrix), genes$ensembl_gene_id)]
+row.names(ntd_matrix) <- gene_names
+
+# Define color function for the heatmap
+col_fun = colorRamp2(c(-2, 0, 2 ), c("green","black", "red"))
+
+# Create a heatmap of scaled gene expression for genes of interest with annotations for diabetes status
+Heatmap(t(scale(t(ntd_matrix[gene_id_of_interest, ]))), 
+        top_annotation = HeatmapAnnotation(status = coldata$diabetes_status), # Annotate with diabetes status
+        show_row_names = T, # Show row names
+        row_names_gp = grid::gpar(fontsize = 9), # Set font size for row names
+        column_order = order(coldata$diabetes_status), # Order columns by diabetes status
+        col=col_fun # Apply color function
+        )
+
+  ###Perfrom same step as above (beta_identity heatmap), but this time for the antioxidant defence geneset heatmap ###
+ntd_matrix <- assay(ntd)
+gene_id_of_interest <- (genes %>% dplyr::filter(external_gene_name %in% genes.of.interest))$external_gene_name
+
+gene_names <- genes$`external_gene_name`[match(row.names(ntd_matrix), genes$ensembl_gene_id)]
+row.names(ntd_matrix) <- gene_names
+
+col_fun = colorRamp2(c(-2, 0, 2 ), c("green","black", "red"))
+
+Heatmap(t(scale(t(ntd_matrix[gene_id_of_interest, ]))), 
+        top_annotation = HeatmapAnnotation(status = coldata$diabetes_status),
+        show_row_names = T,
+        row_names_gp = grid::gpar(fontsize = 8), 
+        column_order = order(coldata$diabetes_status),
+        col=col_fun
+        )
+
+
+
+
+  
