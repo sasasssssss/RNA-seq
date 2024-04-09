@@ -1,0 +1,115 @@
+#import R libraries that will be used for subsequent differential expression analysis 
+suppressPackageStartupMessages(library("tximport"))
+suppressPackageStartupMessages(library("readr"))
+suppressPackageStartupMessages(library("tximportData"))
+suppressPackageStartupMessages(library(DESeq2))
+suppressPackageStartupMessages(library(tximeta))
+#suppressPackageStartupMessages(library("vsn"))
+suppressPackageStartupMessages(library(hexbin))
+suppressPackageStartupMessages(library(biomaRt))
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(conflicted))
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(org.Hs.eg.db))
+
+
+# Reading the metadata file located at "~/Desktop/sampleData.txt" with comma as separator and treating the first line as headers
+samples <- read.table("/Users/selinsafi/Desktop/salmonnnn/sampleData.txt", sep=",", header=TRUE)
+# Setting the row names of the 'samples' data frame to be the values from the 'run' column
+rownames(samples) <- samples$run
+# Creating a new column 'files' in the 'samples' data frame by concatenating a path string, values from the 'Run' column, and the file name "quant.sf"
+samples$files <- paste0("~/Desktop/salmonnnn/counts_out/", samples$Run, "_1_trimmed", "/", "quant.sf")
+# Creating a new column 'names' in the 'samples' data frame and copying the values from the 'Run' column into it
+samples$names <- samples$Run
+
+#samples <- samples[samples$names != "SRR13380525",] #removing the SRR file that had a failed aligment 
+#removing the SRR sample that had a failed aligment and the SRR sample that was identified as an outlier
+samples <- samples[samples$names != "SRR13380525" & samples$names != "SRR13380452", ]  
+
+coldata <- samples[, c("files", "names", "diabetes_status")] # Subset coldata with necessary columns
+
+#Create tximeta and DESeqDataSet
+se <- tximeta(coldata)
+gse <- summarizeToGene(se)
+dds <- DESeqDataSet(gse, design = ~ diabetes_status)
+
+# Perform DESeq analysis
+dds <- DESeq(dds)
+
+
+# Initialize the BioMart database connection with Ensembl, selecting the human gene dataset
+mart <- useMart("ensembl", dataset = "hsapiens_gene_ensembl")
+
+# Retrieve gene information: Ensembl gene IDs and their corresponding external gene names
+# for the genes identified in the 'dds' object (Differential Gene Expression analysis results)
+genes <- getBM(attributes = c('ensembl_gene_id', 'external_gene_name'),
+               filters = 'ensembl_gene_id',
+               values = rownames(results(dds)),
+               mart = mart)
+
+# Convert the results of differential expression analysis into a data frame, applying an alpha threshold of 0.05
+res_all <- as.data.frame(results(dds, alpha=0.05))
+# Set the row names of the results as a new column for Ensembl gene IDs
+res_all$ensembl_gene_id <- row.names(res_all)
+# Merge the differential expression results with gene names fetched from BioMart
+res_all <- merge(res_all, genes, by = "ensembl_gene_id")
+# Filter results for genes with a log2 fold change greater than 1 or less than -1 and an adjusted p-value less than 0.05
+res <- res_all[(res_all$log2FoldChange > 1 | res_all$log2FoldChange < -1) & res_all$padj < 0.05,]
+# Remove any rows with NA values to clean up the data
+res <- na.omit(res)
+
+
+# Create a temporary data frame 'res_temp' with a count of occurrences of each 'external_gene_name'
+res_temp <- as.data.frame(res) %>% group_by(external_gene_name) %>% mutate(n = n())
+# Add the occurrence count 'n' back to the original 'res' data frame
+res$n <- res_temp$n
+# Convert 'res' to a data frame 'res_df' and filter for rows where each gene name occurs only once
+res_df <- as.data.frame(res)
+res_df <- res_df[res_df$n == 1, ]
+
+# Replace NA in 'padj' column with 1
+res_df$padj <- coalesce(res_df$padj, 1)
+res_df[order(res_df$log2FoldChange), ]
+
+
+
+ #Top 10 most differentially under-regulated genes by log2fold change
+head(res_df[order(res_df$log2FoldChange), ], 10)
+
+#Top 10 most differentially upregulated genes by log2fold change
+tail(res_df[order(res_df$log2FoldChange), ], 10) 
+
+
+#Create a vector with antioxidant defence genes
+genes.of.interest<- c("PRDX2", "PRDX6", "TP53", "PRDX3", "PRDX4", "IL6", "NFE2L2", "STAT3",
+    "APOE", "EGFR", "IL10", "IL1B", "MPO", "NFKB1", "TNF", "AKT1", "RELA",
+    "HIF1A", "APP", "CRP", "PPARG", "HMOX1","BDNF", "NLRP3", "SIRT1",
+    "BCL2", "TGFB1", "SOD1", "SOD2", "S100A9", "ADIPOQ", "TERT", "NOS2",
+    "PTGS2", "HP", "SNCA", "KRAS", "CDKN2A", "KEAP1", "CXCL12", "CD44",
+    "NOS3", "SERPINE1", "CDKN1A", "CAT", "MAPK14", "HMGB1", "NQO1", "CXCR4",
+    "PPARGC1A", "LTF", "SQSTM1", "CCL2", "GPX1", "CAV1", "CFH", "EP300",
+    "PARK7", "IDH1", "PRDX1", "PRKN", "FOXO3", "AHR", "TXN", "TNFSF10",
+    "SRC", "ABCG2", "CASP1", "G6PD", "MIR146A", "PRKCD", "APOB", "SHC1",
+    "MIF", "ERCC2", "PRKCA", "CYBB", "FGF2", "SIRT3", "NOX4", "IL6R", "SOD3",
+    "PML", "HSF1", "SHH", "CEBPB", "KL", "IDO1", "ABCC2", "PIK3CG", "TXNRD1",
+    "NOX1", "MAP3K7", "SCARB1", "DNM1L", "GSN", "CBS", "MIR17", "IDH2",
+    "MIR140", "CTSD", "PHB1", "FANCD2", "SERPING1", "BMAL1", "PON2", "TRIM21",
+    "SLC7A11", "GPX4", "GPX3", "NOX5", "SETD7", "ABCG1", "SELENOP", "BACH1",
+    "AKR1B10", "CEACAM6", "AMBP", "GLRX", "GSR", "CHKA", "MSRA", "NNT", 
+    "MGST1", "GLS2", "TXN2", "SELENOK", "SESN1", "LANCL1", "LIAS")
+
+#Perform differential expression analysis on the antioxidant defence gene set
+res1 <- res[res$external_gene_name %in% genes.of.interest, ]
+res1
+
+#Perform differential expression analysis on mature beta identity marker gene set
+beta_identity <-c("INS", "IAPP", "G6PC2", "ADCYAP1", "ERO1B", "DLK1", "NPTX2", 
+                  "GSN", "INS-IGF2", "HADH", "PDX1", "GLIS3", "NKX6-1", "MAFA",
+                  "MAFB", "NR3C1", "MLXIPL", "ZNF395", "SMAD9", "ZNF385D", "DLK1", 
+                  "NPTX2", "TSPAN1", "TSPAN13", "SLC6A6", "ENO1", "SORL1", "RPL3",
+                    "SLC39A14", "ENTPD3")
+
+res2<- res[res$external_gene_name %in% beta_identity, ]
+res2
+
+
