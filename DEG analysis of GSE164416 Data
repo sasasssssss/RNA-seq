@@ -1,16 +1,15 @@
 #import R libraries that will be used for subsequent differential expression analysis 
-suppressPackageStartupMessages(library("tximport"))
-suppressPackageStartupMessages(library("readr"))
-suppressPackageStartupMessages(library("tximportData"))
-suppressPackageStartupMessages(library(DESeq2))
-suppressPackageStartupMessages(library(tximeta))
-#suppressPackageStartupMessages(library("vsn"))
-suppressPackageStartupMessages(library(hexbin))
-suppressPackageStartupMessages(library(biomaRt))
-suppressPackageStartupMessages(library(tidyverse))
-suppressPackageStartupMessages(library(conflicted))
-suppressPackageStartupMessages(library(dplyr))
-suppressPackageStartupMessages(library(org.Hs.eg.db))
+library("tximport")
+library("readr")
+library("tximportData")
+library("DESeq2")
+library("tximeta")
+library("hexbin")
+library("biomaRt")
+library("tidyverse")
+library("conflicted")
+library("dplyr")
+library("org.Hs.eg.db")
 
 
 # Reading the metadata file located at "~/Desktop/sampleData.txt" with comma as separator and treating the first line as headers
