@@ -1,0 +1,26 @@
+DE <- res[!is.na(res$padj),] # Filter out entries with missing adjusted p-values from the results
+DE <- DE[DE$padj < 0.05,] # Keep only genes where the adjusted p-value is less than the threshold of 0.05
+DE <- DE[abs(DE$log2FoldChange) > 2,] # Further refine the list to include only genes with a log2 fold change greater than 1 in absolute value
+genesOfInterest <- rownames(DE) # Compile a list of genes that are significantly expressed
+
+BL <- res[!is.na(res$padj),] # Generate a comprehensive list of all genes that were examined
+backgroundList <- rownames(BL)
+res <- as.data.frame(results(h144_dds, alpha=0.05))
+
+# Add a column 'external_gene_name' from the 'genes' data frame matching the row names of 'res'
+#res$external_gene_name <- genes[rownames(res), "external_gene_name"]
+res$ensembl_gene_id <- row.names(res)
+res <- merge(res, genes, by = "ensembl_gene_id")
+res <- res[(res$log2FoldChange > 2 | res$log2FoldChange < -2 & res$padj < 0.05,]
+res <- na.omit(res)
+
+genesOfInterest <- res$external_gene_name
+
+# Perform an enrichment analysis for GO terms with the defined list of genes
+goResults <- gost(query = genesOfInterest, organism = 'gp__AdCw_vt2O_GxE',
+                  sources = "REAC", significant = TRUE, correction_method = "gSCS", 
+                  user_threshold = 0.05, evcodes = TRUE)
+
+
+print(goResults$result) #display enrichment table
+order_results <- goResults$result[order(goResults$result$p_value), ] # Ordering the results based on the p-value
