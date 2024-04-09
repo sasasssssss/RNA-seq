@@ -1,0 +1,114 @@
+#import libaries used for DEG analysis 
+library("tximport")
+library("readr")
+library("tximportData")
+library(DESeq2)
+library(tximeta)
+library("vsn")
+library(hexbin)
+library(biomaRt)
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library("ggrepel")
+
+
+# Reading a metadata for experiment from mylocal file located at "~/Desktop/sampleData.txt" with comma as separator and treating the first line as headers
+samples <- read.table("~/Desktop/sampleData.txt", sep=",", header=TRUE)
+
+# Setting the row names of the 'samples' data frame to be the values from the 'run' column
+rownames(samples) <- samples$run
+
+# Creating a new column 'files' in the 'samples' data frame by concatenating a path string, values from the 'Run' column, and the file name "quant.sf", which is the expression data
+samples$files <- paste0("~/Desktop/salmon/", samples$Run, "/", "quant.sf")
+
+# Creating a new column 'names' in the 'samples' data frame and copying the values from the 'Run' column into it
+samples$names <- samples$Run
+samples <- samples %>% separate(source_name, into=c("treatment", "Time"))
+
+# Subset coldata with necessary columns
+coldata <- samples[samples$Time == "144h", c("files", "names", "agent", "Time")] 
+#Create tximeta and DESeqDataSet
+se <- tximeta(coldata)
+gse <- summarizeToGene(se)
+h144_dds <- DESeqDataSet(gse, design = ~ agent) #perfrom DEG analysis on treated vs untreated 
+
+# Perform DESeq analysis for the 144h time point
+h144_dds <- DESeq(h144_dds)
+
+
+#converting Ensembl transcript ID's into gene symbols with Biomart
+# Connect to the Ensembl database
+mart <- useMart("ensembl", dataset = "hsapiens_gene_ensembl")
+
+# Get the gene names for your Ensembl IDs
+genes <- getBM(attributes = c('ensembl_gene_id', 'external_gene_name'),
+               filters = 'ensembl_gene_id',
+               values = rownames(results(h144_dds)),
+               mart = mart)
+
+
+# Run differential expression analysis on 'h144_dds' dataset and count statisitcally signficant genes as padj< 0.05 and log2foldchange > |2|
+res_all <- as.data.frame(results(h144_dds, alpha=0.05))
+res_all$ensembl_gene_id <- row.names(res_all)
+res_all <- merge(res_all, genes, by = "ensembl_gene_id")
+res <- res_all[(res_all$log2FoldChange > 2| res_all$log2FoldChange < -2) & res_all$padj < 0.05,]
+res <- na.omit(res)
+
+# Create a temporary data frame 'res_temp' with a count of occurrences of each 'external_gene_name'
+res_temp <- as.data.frame(res) %>% group_by(external_gene_name) %>% mutate(n = n())
+# Add the occurrence count 'n' back to the original 'res' data frame
+res$n <- res_temp$n
+
+# Convert 'res' to a data frame 'res_df' and filter for rows where each gene name occurs only once
+res_df <- as.data.frame(res)
+res_df <- res_df[res_df$n == 1, ]
+res #all genes
+# Create a temporary data frame 'res_temp' with a count of occurrences of each 'external_gene_name'
+res_temp <- as.data.frame(res) %>% group_by(external_gene_name) %>% mutate(n = n())
+
+# Add the occurrence count 'n' back to the original 'res' data frame
+res$n <- res_temp$n
+
+# Convert 'res' to a data frame 'res_df' and filter for rows where each gene name occurs only once
+res_df <- as.data.frame(res)
+res_df <- res_df[res_df$n == 1, ]
+
+# Replace NA in 'padj' column with 1
+res_df$padj <- coalesce(res_df$padj, 1)
+
+
+
+#create a vector with the antioxidant defence genes I will analyse 
+genes.of.interest<- c("PRDX2", "PRDX6", "TP53", "PRDX3", "PRDX4", "IL6", "NFE2L2", "STAT3",
+    "APOE", "EGFR", "IL10", "IL1B", "MPO", "NFKB1", "TNF", "AKT1", "RELA",
+    "HIF1A", "APP", "CRP", "PPARG", "HMOX1", "BDNF", "NLRP3", "SIRT1",
+    "BCL2", "TGFB1", "SOD1", "SOD2", "S100A9", "ADIPOQ", "TERT", "NOS2",
+    "PTGS2", "HP", "SNCA", "KRAS", "CDKN2A", "KEAP1", "CXCL12", "CD44",
+    "NOS3", "SERPINE1", "CDKN1A", "CAT", "MAPK14", "HMGB1", "NQO1", "CXCR4",
+    "PPARGC1A", "LTF", "SQSTM1", "CCL2", "GPX1", "CAV1", "CFH", "EP300", "PARK7", "IDH1", "PRDX1", "PRKN", "FOXO3", "AHR", "TXN", "TNFSF10",
+    "SRC", "ABCG2", "CASP1", "G6PD", "MIR146A", "PRKCD", "APOB", "SHC1",
+    "MIF", "ERCC2", "PRKCA", "CYBB", "FGF2", "SIRT3", "NOX4", "IL6R", "SOD3",
+    "PML", "HSF1", "SHH", "CEBPB", "KL", "IDO1", "ABCC2", "PIK3CG", "TXNRD1",
+    "NOX1", "MAP3K7", "SCARB1", "DNM1L", "GSN", "CBS", "MIR17", "IDH2",
+    "MIR140", "CTSD", "PHB1", "FANCD2", "SERPING1", "BMAL1", "PON2", "TRIM21",
+    "SLC7A11", "GPX4", "GPX3", "NOX5", "SETD7", "ABCG1", "SELENOP", "BACH1",
+    "AKR1B10", "CEACAM6", "AMBP", "GLRX", "GSR", "CHKA", "MSRA", "NNT", 
+    "MGST1", "GLS2", "TXN2", "SELENOK", "SESN1", "LANCL1", "LIAS")
+
+#Run DEG analysis ononly antioxidant defence geneset
+res1 <- res[res$external_gene_name %in% genes.of.interest, ]
+res1
+
+#create a vector with the mature beta cell identity marker  genes I will analyse 
+beta_identity <-c("INS", "IAPP", "G6PC2", "ADCYAP1", "ERO1B", "DLK1", "NPTX2", "GSN", 
+                "INS-IGF2", "HADH", "PDX1", "GLIS3", "NKX6-1", "MAFA", "MAFB", "NR3C1",
+                "MLXIPL", "ZNF395", "SMAD9", "ZNF385D", "DLK1", "NPTX2", "TSPAN1", "TSPAN13",
+                  "SLC6A6", "ENO1", "SORL1", "RPL3", "SLC39A14", "ENTPD3")
+
+#Run DEG analysis on only the mature beta cell identity marker geneset
+res2<- res[res$external_gene_name %in% beta_identity, ]
+res2
+
+
+
