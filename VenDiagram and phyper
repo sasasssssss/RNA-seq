@@ -1,0 +1,30 @@
+
+# Combine sign of log2FoldChange with gene names to indicate direction of change
+res_fgf$gene_direction <- paste0( sign(res_fgf$log2FoldChange), res_fgf$external_gene_name)
+res_diabetes$gene_direction <- paste0( sign(res_diabetes$log2FoldChange), res_diabetes$external_gene_name)
+
+
+fgf_up <- res_fgf[res_fgf$log2FoldChange > 0, "external_gene_name"] #Identify genes upregulated in FGF2 treatment
+fgf_down <- res_fgf[res_fgf$log2FoldChange < 0, "external_gene_name"] #Identify genes downregulated in FGF2 treatment
+diabetes_up <- res_diabetes[res_diabetes$log2FoldChange > 0, "external_gene_name"] #Identify genes upregulated in diabetes
+diabetes_down <- res_diabetes[res_diabetes$log2FoldChange < 0, "external_gene_name"] #Identify genes downregulated in diabetes
+
+
+# Generate a Venn diagram to visualize overlaps between upregulated and downregulated genes in FGF2 treatment and diabetes
+venn.diagram(
+  x = list(fgf_down, fgf_up, diabetes_down, diabetes_up), # Lists of gene sets for comparison
+  category.names=c("fgf_down", "fgf_up", "diabetes_down", "diabetes_up"), # Labels for each gene set
+  filename= "venn_all.png", # File name for saving the diagram
+  output=TRUE # Save the diagram as a file
+)
+
+
+phyper(
+  length( base::intersect(res_fgf$gene_direction, res_diabetes$gene_direction) ) - 1, 
+  # Subtract 1 from the length of the intersection between res_fgf and res_diabetes gene_direction. T
+  length(res_fgf$gene_direction),
+  (2*37759) - length(res_fgf$gene_direction), # 37759 represents the total number of genes, so 2*37759 accounts for both possible directions of each gene.
+  length(res_diabetes$gene_direction), 
+  # The number of draws, which is the length of res_diabetes's gene_direction. This represents how many genes are being tested for enrichment.
+  lower.tail=FALSE  # Specifies that the p-value should be calculated for the upper tail of the distribution. This is important for tests where the interest lies in the upper distribution tail.
+)
