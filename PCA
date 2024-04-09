@@ -1,0 +1,44 @@
+###PCA for FGF2 data - GSE103383
+
+# Variance stabilisation to dds (DESeqDataSet)
+vsd <- vst(h144_dds, blind=FALSE)
+
+# Perform PCA on 'vsd' and retrieve the PCA data along with the grouping based on 'agent' and 'names', storing it in 'pcaData'
+pcaData <- plotPCA(vsd, intgroup=c("agent", "names"), returnData=TRUE)
+
+# Calculate the percentage of variance explained by the first two principal components and round them
+percentVar <- round(100 * attr(pcaData, "percentVar"))
+
+# Create a scatter plot using ggplot2 with PC1 and PC2 as axes, color the points based on 'agent', and label axes with the percentage of variance explained
+ggplot(pcaData, aes(PC1, PC2, color= agent)) +
+  geom_point(size=5) +
+  xlab(paste0("PC1: ",percentVar[1],"% variance")) +
+  ylab(paste0("PC2: ",percentVar[2],"% variance")) + 
+  coord_fixed()
+
+ggplot
+# Create a scatter plot with specified x-axis limits
+ggplot(pcaData, aes(PC1, PC2, color= agent)) +
+  geom_point(size=7) +
+  xlab(paste0("PC1: ", percentVar[1], "% variance")) +
+  ylab(paste0("PC2: ", percentVar[2], "% variance")) +
+  scale_x_continuous(limits = c(-10, 10)) # Adjust these values as needed
+
+
+###PCA for T2D data - GSE164416
+#Perfroming variance stabilisation on dds data (DESeqDataSet)
+vsd <- vst(dds, blind=FALSE)
+
+# Perform PCA on 'vsd' and retrieve the PCA data along with the grouping based on 'agent' and 'names', storing it in 'pcaData'
+pcaData <- plotPCA(vsd, intgroup=c("diabetes_status"), returnData=TRUE)
+
+# Calculate the percentage of variance explained by the first two principal components and round them
+percentVar <- round(100 * attr(pcaData, "percentVar"))
+
+# Create a scatter plot using ggplot2 with PC1 and PC2 as axes, color the points based on 'agent', and label axes with the percentage of variance explained
+ggplot(pcaData, aes(PC1, PC2, color=diabetes_status)) +
+  geom_point(size=3) +
+  xlab(paste0("PC1: ",percentVar[1],"% variance")) +
+  ylab(paste0("PC2: ",percentVar[2],"% variance")) + 
+  coord_fixed()
+
