@@ -1,0 +1,47 @@
+# Transpose, scale, and convert the assay data from 'ntd' into a long-format data frame with sample IDs and counts
+dat.long <- as.data.frame(t(scale(t(assay(ntd))))) %>%
+  rownames_to_column() %>%
+  pivot_longer(cols = -rowname, names_to = "samples", values_to = "counts")
+
+# Join the gene information from 'genes' dataframe to 'dat.long' based on gene IDs
+dat.long <- dat.long %>%
+  dplyr::left_join(genes, by=c("rowname"="ensembl_gene_id"))
+
+# Create a matrix from the 'ntd' assay data for further analysis
+ntd_matrix <- assay(ntd)
+
+
+# Classify samples into 'control', 'fgf2', or 'unknown' based on their sample IDs and add this classification as a new column 'agent'
+dat.longo <- dat.long %>%
+  mutate(agent = case_when(
+    samples %in% c('SRR5998609', 'SRR5998610', 'SRR5998611') ~ 'control',
+    samples %in% c('SRR5998612', 'SRR5998613', 'SRR5998614') ~ 'fgf2',
+    TRUE ~ 'unknown'  # For any samples that do not match the above IDs, they are marked as 'unknown'
+  ))
+
+
+#Heatmap construction for mature beta_identity marker genes
+head(dat.longo[, ])
+colnames(dat.longo)
+res_df_copy <- res_df
+head(genes)
+dat.assay <- assay(ntd)
+rownames(genes) <- genes$ensembl_gene_id
+rownames(dat.assay) <- genes[rownames(dat.assay), "external_gene_name"]
+
+Heatmap(t(scale(t(dat.assay[beta_identity, ]))), 
+        top_annotation = HeatmapAnnotation(status = coldata$agent),
+        #right_annotation = rowAnnotation(gene = anno_text(top_100_genes)),
+        show_row_names = T,
+        column_order = order(coldata$agent)
+        )
+
+#Heatmap construction for antioxidant defence genes
+genes.of.interest
+plotdata <- dat.assay[base::intersect(genes.of.interest, rownames(dat.assay)), ]
+plotdata <- plotdata[rowSums(plotdata) > 0, ]
+
+Heatmap(t(scale(t(plotdata))), 
+        top_annotation = HeatmapAnnotation(status = coldata$agent),
+        column_order = order(coldata$agent),
+        row_names_gp = gpar(fontsize = 8) # Adjust fontsize here
