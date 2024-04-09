@@ -1,0 +1,57 @@
+# Download the latest Human gene set annotations from the GSEA website
+download.file(url="https://www.gsea-msigdb.org/gsea/msigdb/download_file.jsp?filePath=/msigdb/release/2023.2.Hs/h.all.v2023.2.Hs.symbols.gmt", destfile="~/msigdb_H.gmt")
+# Load the downloaded GMT file for analysis
+upload_GMT_file(gmtfile = "/Users/selinsafi/Downloads/h.all.v2023.2.Hs.symbols.gmt")
+
+# Begin processing differential expression results
+DE <- res[!is.na(res$padj),] # Remove entries without adjusted p-values
+DE <- DE[DE$padj < 0.05,] # Select genes with significant adjusted p-values
+DE <- DE[abs(DE$log2FoldChange) > 1,] # Filter for genes with substantial fold changes
+genesOfInterest <- rownames(DE) # List genes of interest based on above filters
+
+BL <- res[!is.na(res$padj),] # Create a list of all analyzed genes
+backgroundList <- rownames(BL) # List of all gene names for background comparison
+
+# Prepare result data frame for analysis
+res <- as.data.frame(results(dds, alpha=0.05))
+res$ensembl_gene_id <- row.names(res) # Map Ensembl IDs to result data frame
+res <- merge(res, genes, by = "ensembl_gene_id") # Merge gene info based on Ensembl ID
+res <- res[(res$log2FoldChange > 1 | res$log2FoldChange < -1) & res$padj < 0.05,] # Filter for significant genes
+res <- na.omit(res) # Remove any rows with NA values
+
+#### Gene Ontology functional Enrichment 
+genesOfInterest <- res$external_gene_name
+# Perform an enrichment analysis for GO terms with the defined list of genes
+goResults <- gost(query = genesOfInterest, organism = 'gp__AdCw_vt2O_GxE',
+                  sources = "REAC", significant = TRUE, correction_method = "gSCS", 
+                  user_threshold = 0.05, evcodes = TRUE)
+
+print(goResults$result) #display enrichment table
+
+
+#####KEGG analysis 
+# Convert Ensembl gene IDs to Entrez IDs
+entrez_ids <- bitr(genesOfInterest, fromType = "ENSEMBL", toType = "ENTREZID", OrgDb = org.Hs.eg.db)
+
+# Perform KEGG enrichment analysis using Entrez IDs
+kegg_results <- enrichKEGG(gene = a$ENTREZID,
+                           organism = 'hsa', # use 'hsa' for human
+                           keyType = 'ncbi-geneid', # use 'kegg' for KEGG ID
+                           pAdjustMethod = "BH",
+                           qvalueCutoff = 0.05)
+# View the top KEGG enrichment results
+head(kegg_results)
+
+
+#######Network/pathway analyis 
+library(clusterProfiler)
+data(gcSample)
+xx <- compareCluster(gcSample, fun="enrichKEGG",
+                     organism="hsa", pvalueCutoff=0.05)
+
+xx <- pairwise_termsim(xx)                     
+p1 <- emapplot(xx)
+p2 <- emapplot(xx, legend_n=2) 
+p3 <- emapplot(xx, pie="count")
+p4 <- emapplot(xx, pie="count", cex_category=1.5, layout="kk")
+cowplot::plot_grid(p1, p2, p3, p4, ncol=2, labels=LETTERS[1:4]) 
